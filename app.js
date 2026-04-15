@@ -267,17 +267,57 @@ function todayStr() {
   return `${year}-${month}-${day}`;
 }
 
-// ===================== PARTICLES =====================
+// ===================== FALLING PETALS (replaces old particles) =====================
 function initParticles() {
-  const container = document.getElementById('particles');
-  const emojis = ['🌸','🌺','🌷','💮','🌸','✨','💕','🌸'];
-  for (let i=0;i<18;i++) {
-    const p = document.createElement('div');
-    p.className = 'particle';
-    p.textContent = emojis[Math.floor(Math.random()*emojis.length)];
-    p.style.cssText = `left:${Math.random()*100}%;top:${Math.random()*100}%;animation-duration:${8+Math.random()*12}s;animation-delay:${Math.random()*10}s;font-size:${10+Math.random()*14}px;`;
-    container.appendChild(p);
+  // Replace the static particles container with a richer petal canvas
+  const oldContainer = document.getElementById('particles');
+  if (oldContainer) oldContainer.innerHTML = '';
+
+  // Create dedicated petal canvas if not exists
+  let canvas = document.getElementById('petal-canvas');
+  if (!canvas) {
+    canvas = document.createElement('div');
+    canvas.id = 'petal-canvas';
+    canvas.className = 'petal-canvas';
+    document.body.insertBefore(canvas, document.body.firstChild);
   }
+
+  // Petal varieties — emoji + text petals
+  const petals = ['🌸','🌷','🌺','💮','✿','❀','🌸','🌸','🌷'];
+  const petalCount = window.innerWidth < 600 ? 14 : 22;
+
+  for (let i = 0; i < petalCount; i++) {
+    spawnPetal(canvas, petals, i * (18000 / petalCount));
+  }
+}
+
+function spawnPetal(canvas, petals, initialDelay) {
+  const p = document.createElement('div');
+  p.className = 'petal';
+  const drift = (Math.random() - 0.5) * 180;
+  const duration = 12 + Math.random() * 14;
+  const size = 10 + Math.random() * 11;
+  const leftStart = Math.random() * 105;
+
+  p.textContent = petals[Math.floor(Math.random() * petals.length)];
+  p.style.cssText = `
+    left: ${leftStart}%;
+    font-size: ${size}px;
+    animation-duration: ${duration}s;
+    animation-delay: ${initialDelay}ms;
+    opacity: 0;
+    --drift: ${drift}px;
+  `;
+  canvas.appendChild(p);
+
+  // After each cycle ends, randomize position for variety
+  p.addEventListener('animationiteration', () => {
+    p.style.left = Math.random() * 105 + '%';
+    p.style.fontSize = (10 + Math.random() * 11) + 'px';
+    p.style.animationDuration = (12 + Math.random() * 14) + 's';
+    const newDrift = (Math.random() - 0.5) * 180;
+    p.style.setProperty('--drift', newDrift + 'px');
+  });
 }
 
 // ===================== NAVEGACIÓN (FIX PRINCIPAL) =====================
@@ -289,24 +329,85 @@ document.querySelectorAll('.nav-tab').forEach(tab => {
     if (!section) { console.warn('Sección no encontrada: tab-' + target); return; }
 
     document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.section').forEach(s => {
+      if (s.classList.contains('active')) {
+        // Fade out current section
+        gsap.to(s, { opacity: 0, scale: 0.97, filter: 'blur(4px)', duration: 0.2, ease: 'power2.in', onComplete: () => {
+          s.classList.remove('active');
+          gsap.set(s, { opacity: '', scale: '', filter: '' });
+        }});
+      }
+    });
     tab.classList.add('active');
-    section.classList.add('active');
 
-    // Scroll al tope al cambiar de sección
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-
-    gsap.fromTo(section, { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.5, ease: 'power2.out' });
-
-    if (target === 'tree')   renderTree();
-    if (target === 'dani')   initDaniTab();
-    if (target === 'extras') initExtrasTab();
+    // Small delay so the old section fades before new one appears
+    setTimeout(() => {
+      section.classList.add('active'); // triggers sectionReveal CSS animation
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      if (target === 'tree')   renderTree();
+      if (target === 'dani')   initDaniTab();
+      if (target === 'extras') initExtrasTab();
+    }, 180);
   });
 });
 
 document.getElementById('today-date').textContent = formatDate(new Date());
 
 // ===================== MOOD SELECTOR =====================
+// Confetti colors per mood
+const MOOD_CONFETTI_COLORS = {
+  feliz:       ['#FFD700','#FFF176','#FFEC3D','#FFD600'],
+  enamorada:   ['#FF85A1','#FF5C8A','#FF91AB','#FFB3C1'],
+  tranquila:   ['#A8E6CF','#88D8B0','#6ECF9B','#B4EDD3'],
+  triste:      ['#BDE0FE','#90CAF9','#64B5F6','#BBDEFB'],
+  enojada:     ['#FFB347','#FF8C00','#FFA500','#FFD180'],
+  ansiosa:     ['#CDB4DB','#B39DDB','#CE93D8','#E1BEE7'],
+  cansada:     ['#C8E6C9','#A5D6A7','#81C784','#E8F5E9'],
+  esperanzada: ['#FFF176','#F9E64A','#FFEE58','#FFF9C4'],
+};
+
+function burstConfetti(btn, mood) {
+  const colors = MOOD_CONFETTI_COLORS[mood] || ['#FFB3C1','#FF85A1','#FFD6E7'];
+  const rect = btn.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+  const count = 12;
+
+  for (let i = 0; i < count; i++) {
+    const dot = document.createElement('div');
+    dot.className = 'confetti-dot';
+    const angle = (360 / count) * i;
+    const rad = (angle * Math.PI) / 180;
+    const dist = 28 + Math.random() * 22;
+    const tx = Math.cos(rad) * dist;
+    const ty = Math.sin(rad) * dist;
+    const color = colors[Math.floor(Math.random() * colors.length)];
+    dot.style.cssText = `
+      background: ${color};
+      width: ${5 + Math.random() * 4}px;
+      height: ${5 + Math.random() * 4}px;
+      left: ${cx}px;
+      top: ${cy}px;
+      position: fixed;
+      z-index: 9999;
+      border-radius: 50%;
+      --tx: ${tx}px;
+      --ty: ${ty}px;
+      --dur: ${0.5 + Math.random() * 0.3}s;
+      --delay: ${Math.random() * 0.1}s;
+      pointer-events: none;
+    `;
+    document.body.appendChild(dot);
+    gsap.to(dot, {
+      x: tx, y: ty, opacity: 0, scale: 0.2,
+      duration: 0.55 + Math.random() * 0.2,
+      delay: Math.random() * 0.08,
+      ease: 'power2.out',
+      onComplete: () => dot.remove()
+    });
+  }
+}
+
 document.querySelectorAll('.mood-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('selected'));
@@ -315,7 +416,17 @@ document.querySelectorAll('.mood-btn').forEach(btn => {
     state.today.mood       = selectedMood;
     state.today.moodEmoji  = btn.dataset.emoji;
     state.today.date       = todayStr();
-    gsap.fromTo(btn,{scale:1},{scale:1.15,duration:0.15,yoyo:true,repeat:1,ease:'power2.out'});
+
+    // Bounce animation
+    gsap.timeline()
+      .to(btn, { scale: 1.25, duration: 0.12, ease: 'power2.out' })
+      .to(btn, { scale: 0.92, duration: 0.08, ease: 'power2.in' })
+      .to(btn, { scale: 1.08, duration: 0.1, ease: 'power2.out' })
+      .to(btn, { scale: 1,    duration: 0.08, ease: 'power2.in' });
+
+    // Confetti burst
+    burstConfetti(btn, selectedMood);
+
     showMotivationalMsg();
     // Guardar mood inmediatamente en la nube para que Dani lo vea
     cloudSaveMain({ today: state.today });
@@ -643,23 +754,88 @@ function animateWatering(){
 }
 
 // ===================== TOAST =====================
-let toastTimer=null;
-function showToast(msg,pink=false){
-  const toast=document.getElementById('toast');
-  toast.textContent=msg;
-  toast.className='toast show'+(pink?' pink-toast':'');
-  if(toastTimer) clearTimeout(toastTimer);
-  toastTimer=setTimeout(()=>toast.classList.remove('show'),3000);
+let toastTimer = null;
+function showToast(msg, pink = false) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.className = 'toast' + (pink ? ' pink-toast' : '');
+
+  if (toastTimer) {
+    clearTimeout(toastTimer);
+    // Force a quick reset so the wiggle re-triggers
+    toast.classList.remove('show', 'hiding');
+    void toast.offsetWidth; // reflow
+  }
+
+  toast.classList.add('show');
+
+  toastTimer = setTimeout(() => {
+    toast.classList.remove('show');
+    toast.classList.add('hiding');
+    setTimeout(() => toast.classList.remove('hiding'), 400);
+  }, 3000);
 }
 
-// ===================== GSAP INTRO =====================
+// ===================== GSAP INTRO + TYPEWRITER + SCROLL REVEAL =====================
 function introAnims(){
-  gsap.from('.nav',       {y:-60,opacity:0,duration:0.8,ease:'power3.out'});
-  gsap.from('.hero-title',{y:30,opacity:0,duration:1,delay:0.3,ease:'power3.out'});
-  gsap.from('.hero-sub',  {y:20,opacity:0,duration:0.8,delay:0.5});
-  gsap.from('.hero-date', {y:15,opacity:0,duration:0.6,delay:0.2});
-  gsap.from('.flower',    {scale:0,opacity:0,duration:0.8,stagger:0.1,delay:0.6,ease:'back.out(2)'});
-  gsap.from('.card',{scrollTrigger:{trigger:'.card',start:'top 90%'},y:40,opacity:0,duration:0.7,stagger:0.12,ease:'power2.out'});
+  gsap.from('.nav', {y:-60, opacity:0, duration:0.8, ease:'power3.out'});
+  gsap.from('.hero-sub',  {y:20, opacity:0, duration:0.8, delay:0.5});
+  gsap.from('.hero-date', {y:15, opacity:0, duration:0.6, delay:0.2});
+  gsap.from('.flower',    {scale:0, opacity:0, duration:0.8, stagger:0.1, delay:0.6, ease:'back.out(2)'});
+
+  // Typewriter effect on hero title using GSAP
+  const heroTitle = document.querySelector('.hero-title');
+  if (heroTitle) {
+    const originalHTML = heroTitle.innerHTML;
+    // Split into lines for the typewriter — first line normal, second line (em) typed
+    const line1 = '¿Cómo te sientes';
+    const line2Text = 'hoy, amor?';
+    heroTitle.innerHTML = `<span class="hero-line1"></span><br><em class="hero-line2"></em>`;
+
+    const l1 = heroTitle.querySelector('.hero-line1');
+    const l2 = heroTitle.querySelector('.hero-line2');
+
+    // Typewriter timeline
+    const tl = gsap.timeline({ delay: 0.35 });
+    tl.to(heroTitle, { opacity: 1, duration: 0 });
+
+    // Type line 1
+    let i = 0;
+    tl.call(() => {
+      const typeInterval = setInterval(() => {
+        l1.textContent = line1.substring(0, i + 1);
+        i++;
+        if (i >= line1.length) clearInterval(typeInterval);
+      }, 40);
+    });
+
+    // Short pause then type line 2
+    tl.call(() => {
+      let j = 0;
+      const typeInterval2 = setInterval(() => {
+        l2.textContent = line2Text.substring(0, j + 1);
+        j++;
+        if (j >= line2Text.length) clearInterval(typeInterval2);
+      }, 55);
+    }, [], '+=0.75');
+  }
+
+  // ScrollTrigger stagger for cards
+  gsap.utils.toArray('.card').forEach((card, i) => {
+    gsap.from(card, {
+      scrollTrigger: {
+        trigger: card,
+        start: 'top 88%',
+        toggleActions: 'play none none none'
+      },
+      y: 45,
+      opacity: 0,
+      scale: 0.97,
+      duration: 0.6,
+      delay: i * 0.05,
+      ease: 'power2.out'
+    });
+  });
 }
 
 // ============================================================

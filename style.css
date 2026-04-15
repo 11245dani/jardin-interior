@@ -1,4 +1,42 @@
-/* ======================================body {
+/* ============================================================
+   MI JARDÍN INTERIOR — Estilos globales
+   ============================================================ */
+
+:root {
+  /* Fuentes */
+  --font-display: 'Playfair Display', Georgia, serif;
+  --font-body:    'Lora', Georgia, serif;
+  --font-script:  'Dancing Script', cursive;
+
+  /* Paleta de colores */
+  --pink-100:   #fff0f5;
+  --pink-200:   #ffd6e7;
+  --pink-300:   #ffb3c1;
+  --pink-400:   #ff85a1;
+  --pink-accent:#ff5c8a;
+  --blush:      #ffc8dd;
+  --rose-soft:  #ffe4e1;
+  --lilac:      #e8c4de;
+  --lavender:   #cdb4db;
+  --white-soft: #fffafc;
+  --black-soft: #1a0a0f;
+  --charcoal:   #4a2c3a;
+
+  /* Radios */
+  --radius-sm: 12px;
+  --radius-md: 18px;
+  --radius-lg: 24px;
+
+  /* Sombras */
+  --shadow-sm: 0 2px 12px rgba(255,133,161,0.15);
+  --shadow-md: 0 4px 24px rgba(255,133,161,0.18);
+  --shadow-lg: 0 8px 40px rgba(255,133,161,0.22);
+
+  /* Transición global */
+  --transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+body {
   font-family: var(--font-body);
   background: var(--pink-100);
   color: var(--black-soft);
@@ -16,20 +54,26 @@ body.intro-active {
   overflow: hidden;
 }
 
-/* Intro overlay container — full-screen backdrop with gradient like the page bg */
+/* Intro overlay — full-screen, sits on top of everything */
 .intro-overlay {
   position: fixed;
   inset: 0;
-  z-index: 160;
+  z-index: 1000;
   display: flex;
   align-items: center;
   justify-content: center;
+  /* Sólido en el centro, degradado rosado en los bordes — tapa el contenido completamente */
   background:
-    radial-gradient(ellipse at 15% 10%, rgba(255,200,221,0.6) 0%, transparent 50%),
-    radial-gradient(ellipse at 85% 90%, rgba(205,180,219,0.45) 0%, transparent 50%),
-    radial-gradient(ellipse at 50% 50%, rgba(255,240,245,0.98) 0%, transparent 80%),
-    var(--pink-100);
+    radial-gradient(ellipse at 15% 10%,  rgba(255,200,221,0.7)  0%, transparent 55%),
+    radial-gradient(ellipse at 85% 90%,  rgba(205,180,219,0.55) 0%, transparent 55%),
+    radial-gradient(ellipse at 50% 50%,  rgba(255,240,245,1.0)  0%, 70%,  transparent 100%),
+    #fff0f5;
+  /* Blur extra sobre lo que pueda filtrarse */
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
   pointer-events: auto;
+  /* Estado inicial visible */
+  opacity: 1;
   transition: opacity 0.7s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -199,6 +243,11 @@ body.intro-active {
 @keyframes fadeOut {
   from { opacity: 1; }
   to   { opacity: 0; }
+}
+
+@keyframes welcomeSpinGrow {
+  0%   { opacity: 0; transform: scale(0) rotate(-360deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0deg); }
 }
 
 /* Responsive */

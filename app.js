@@ -149,6 +149,82 @@ function _restoreMoodUI() {
 // ============================================================
 gsap.registerPlugin(ScrollTrigger);
 
+// ===================== INTRO SCREEN =====================
+const INTRO_DURATION = 6000; // ms before auto-dismiss
+let introSkipped = false;
+
+function initIntroParticles() {
+  const container = document.getElementById('intro-particles');
+  if (!container) return;
+  const emojis = ['🌸','🌺','🌷','💮','✨','💕','🌸','🌸'];
+  for (let i = 0; i < 20; i++) {
+    const p = document.createElement('div');
+    p.className = 'intro-particle';
+    p.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+    p.style.cssText = `
+      left:${Math.random() * 100}%;
+      top:${Math.random() * 100}%;
+      animation-duration:${9 + Math.random() * 10}s;
+      animation-delay:${Math.random() * 8}s;
+      font-size:${10 + Math.random() * 12}px;
+    `;
+    container.appendChild(p);
+  }
+}
+
+function initIntroScreen() {
+  const introOverlay = document.getElementById('intro-overlay');
+  const introSkipBtn = document.getElementById('intro-skip');
+
+  if (!introOverlay) {
+    console.warn('Intro overlay not found');
+    return;
+  }
+
+  // Spawn particles inside the intro
+  initIntroParticles();
+
+  // Lock scroll while intro is visible
+  document.body.classList.add('intro-active');
+
+  // ── Dismiss logic ─────────────────────────────────────────
+  function skipIntro() {
+    if (introSkipped) return;
+    introSkipped = true;
+    clearTimeout(autoSkipTimer);
+    document.removeEventListener('keydown', handleKeyDown);
+
+    // GSAP fade-out — same ease used everywhere for exits
+    gsap.to(introOverlay, {
+      opacity: 0,
+      duration: 0.65,
+      ease: 'power2.inOut',
+      onComplete: () => {
+        introOverlay.classList.add('hidden');
+        document.body.classList.remove('intro-active');
+        // Animate hero content in after intro exits (same as tab switch)
+        gsap.fromTo('.diary-hero', { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.5, ease: 'power2.out' });
+      }
+    });
+  }
+
+  // Button click
+  if (introSkipBtn) introSkipBtn.addEventListener('click', skipIntro);
+
+  // Keyboard: Escape skips; any other key also skips (after content has appeared)
+  function handleKeyDown(e) {
+    if (e.key === 'Escape') { skipIntro(); return; }
+    // Any key after animations have had time to play (≥1.5 s)
+    if (performance.now() > 1500) skipIntro();
+  }
+  document.addEventListener('keydown', handleKeyDown);
+
+  // Auto-dismiss after duration
+  const autoSkipTimer = setTimeout(() => {
+    if (!introSkipped) skipIntro();
+  }, INTRO_DURATION);
+}
+
 // ===================== ESTADO GLOBAL =====================
 const defaultState = {
   entries: [], drafts: [],
@@ -182,7 +258,14 @@ function getMotivationalMsg(mood, scale) {
 function formatDate(date) { return new Date(date).toLocaleDateString('es-ES',{weekday:'long',year:'numeric',month:'long',day:'numeric'}); }
 function formatDateShort(date) { return new Date(date).toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'}); }
 function isSameDay(d1,d2) { const a=new Date(d1),b=new Date(d2); return a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate(); }
-function todayStr() { return new Date().toISOString().split('T')[0]; }
+// FIX: Usar fecha local en lugar de UTC para que coincida siempre con la fecha actual del usuario
+function todayStr() { 
+  const today = new Date(); 
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
 
 // ===================== PARTICLES =====================
 function initParticles() {
@@ -1010,15 +1093,29 @@ function renderAchievements(){
   });
 }
 
+// ===================== PANTALLA DE BIENVENIDA =====================
 // ===================== INIT =====================
-loadState();
-renderDrafts();
-initParticles();
-introAnims();
-startRealtimeSync(); // arrancar listeners de Firestore
-
-// Renderizar árbol solo si la sección está activa
-if(document.getElementById('tab-tree')?.classList.contains('active')) renderTree();
+// Esperar a que el DOM esté completamente listo
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => {
+    initIntroScreen();
+    loadState();
+    renderDrafts();
+    initParticles();
+    introAnims();
+    startRealtimeSync();
+    if(document.getElementById('tab-tree')?.classList.contains('active')) renderTree();
+  });
+} else {
+  // DOM ya está listo
+  initIntroScreen();
+  loadState();
+  renderDrafts();
+  initParticles();
+  introAnims();
+  startRealtimeSync();
+  if(document.getElementById('tab-tree')?.classList.contains('active')) renderTree();
+}
 
 // ============================================================
 //   PIN LOCK — Área de Dani
